@@ -1,0 +1,146 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: sg-securities
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sg-securities-python
+  namespace: sg-securities
+  labels:
+    app: sg-securities-python
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sg-securities-python
+  template:
+    metadata:
+      labels:
+        app: sg-securities-python
+        tier: backend
+        service: python
+    spec:
+      containers:
+        - name: python-service
+          image: sgsecurities-python:latest
+          ports:
+            - containerPort: 8000
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 15
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: sg-securities-python
+  namespace: sg-securities
+  labels:
+    app: sg-securities-python
+spec:
+  selector:
+    app: sg-securities-python
+  ports:
+    - protocol: TCP
+      port: 8000
+      targetPort: 8000
+  type: ClusterIP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sg-securities-dotnet
+  namespace: sg-securities
+  labels:
+    app: sg-securities-dotnet
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sg-securities-dotnet
+  template:
+    metadata:
+      labels:
+        app: sg-securities-dotnet
+        tier: backend
+        service: dotnet
+    spec:
+      containers:
+        - name: dotnet-service
+          image: sgsecurities-dotnet:latest
+          ports:
+            - containerPort: 80
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 80
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 80
+            initialDelaySeconds: 15
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: sg-securities-dotnet
+  namespace: sg-securities
+  labels:
+    app: sg-securities-dotnet
+spec:
+  selector:
+    app: sg-securities-dotnet
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80
+  type: ClusterIP
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: sg-securities-gateway
+  namespace: sg-securities
+  annotations:
+    kubernetes.io/ingress.class: nginx
+spec:
+  rules:
+    - host: sg-securities.local
+      http:
+        paths:
+          - path: /python
+            pathType: Prefix
+            backend:
+              service:
+                name: sg-securities-python
+                port:
+                  number: 8000
+          - path: /dotnet
+            pathType: Prefix
+            backend:
+              service:
+                name: sg-securities-dotnet
+                port:
+                  number: 80
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sg-securities-config
+  namespace: sg-securities
+data:
+  APP_NAME: "SG Securities"
+  ENVIRONMENT: "development"
