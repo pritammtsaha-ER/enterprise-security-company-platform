@@ -1,1 +1,0 @@
-# enterprise-security-company-platform
